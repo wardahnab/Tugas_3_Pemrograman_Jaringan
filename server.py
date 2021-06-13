@@ -13,11 +13,11 @@ def read_msg(clients, sock_cli, addr_cli, username_cli):
         #Parsing pesannya
         dest, msg = data.split("|")
         print(addr_cli, dest, msg)
-        msg = "[Dari:{}]: {}".format(username_cli, msg)
+        msg = "[{}]: {}".format(username_cli, msg)
     
     #Mengirim pesan ke client        
         #Mengirim pesan untuk semua client
-        if dest == "bcast":
+        if dest == "semua":
             send_broadcast(clients, msg, addr_cli)
         #Mengirim pesan untuk cilent tertentu
         else:
@@ -29,7 +29,7 @@ def read_msg(clients, sock_cli, addr_cli, username_cli):
         
     #Disconnect client dan dihapus dari daftar client
     sock_cli.close()
-    print("connection closed", addr_cli)
+    print("Connection closed", addr_cli)
     del clients["{}:{}".format(addr_cli[0], addr_cli[1])]
 
 #send_broadcast(ke semua client)
@@ -60,7 +60,7 @@ while True:
     
         #Menerima username dari client
         username_cli = sock_cli.recv(65535).decode("utf-8")
-        print(" {} joined".format(username_cli))
+        print(" {} successfully joined".format(username_cli))
 
         #Buat Thread
         thread_cli = threading.Thread(target=read_msg, args=(clients, sock_cli, addr_cli, username_cli))
