@@ -1,32 +1,46 @@
 import socket
+import sys
 import threading
 
 
-def read_msg(clients, sock_cli, addr_cli): 
+def read_msg(clients, sock_cli, addr_cli, username_cli): 
     #Menerima pesan
     while True:
-        data = sock_cli.recv(65535)
+        data = sock_cli.recv(65535).decode("utf-8")
         if len(data) == 0:
             break
 
         #Parsing pesannya
-        print(addr_cli, data)
-        
-        #Mengirim pesan ke client        
-        send_broadcast(clients, data, addr_cli)
+        dest, msg = data.split("|")
+        print(addr_cli, dest, msg)
+        msg = "[Dari:{}]: {}".format(username_cli, msg)
+    
+    #Mengirim pesan ke client        
+        #Mengirim pesan untuk semua client
+        if dest == "bcast":
+            send_broadcast(clients, msg, addr_cli)
+        #Mengirim pesan untuk cilent tertentu
+        else:
+            for dest_sock_cli, dest_addr_cli, _, dest_username_cli in clients.values():
+                print(dest)
+                print(dest_username_cli)
+                if dest_username_cli == dest:
+                    send_msg(dest_sock_cli, msg)
         
     #Disconnect client dan dihapus dari daftar client
     sock_cli.close()
-    print("Connection closed", addr_cli)
+    print("connection closed", addr_cli)
     del clients["{}:{}".format(addr_cli[0], addr_cli[1])]
 
 #send_broadcast(ke semua client)
 def send_broadcast(clients, data, sender_addr_cli):
-    for sock_cli, addr_cli, _ in clients.values():
-        send_msg(sock_cli, data)
-        
+    for sock_cli, addr_cli, _, username_cli in clients.values():
+        if not (sender_addr_cli[0] == addr_cli[0] and sender_addr_cli[1] == addr_cli[1]):
+            send_msg(sock_cli, data)
+
+#send_msg(pesan ke client tertentu)
 def send_msg(sock_cli, data):
-    sock_cli.send(data)
+    sock_cli.send(bytes(data, "utf-8"))
 
 #Object socket server
 sock_server= socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -43,13 +57,17 @@ clients = {}
 while True:
     try:
         sock_cli, addr_cli = sock_server.accept()
+    
+        #Menerima username dari client
+        username_cli = sock_cli.recv(65535).decode("utf-8")
+        print(" {} joined".format(username_cli))
 
         #Buat Thread
-        thread_cli = threading.Thread(target=read_msg, args=(clients, sock_cli, addr_cli))
+        thread_cli = threading.Thread(target=read_msg, args=(clients, sock_cli, addr_cli, username_cli))
         thread_cli.start()
 
         #Menambah client baru ke dictionary
-        clients["[{}]:{}".format(addr_cli[0], addr_cli[1])] = (sock_cli, addr_cli, thread_cli)
+        clients["[{}]:{}".format(addr_cli[0], addr_cli[1])] = (sock_cli, addr_cli, thread_cli, username_cli)
 
     except KeyboardInterrupt:
         #Menutup object server
