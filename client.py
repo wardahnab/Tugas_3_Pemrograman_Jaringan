@@ -1,15 +1,39 @@
 import socket
 import sys
 import threading
+import os
+import ntpath
 
 def read_msg(sock_cli): 
+    #Menerima pesan
     while True:
-        msg = sock_cli.recv(65535).decode("utf-8")
+        msg = sock_cli.recv(65535)
         if len(msg) == 0:
             break
-        print(msg)
+        datatype, message = msg.split(b"|", 1)
+        datatype = datatype.decode("utf-8")
 
-    sock_cli.close()
+        #semua pesan selain file
+        if datatype == "message":
+            message = message.decode("utf-8")
+            print(message)
+
+        #file
+        elif datatype == "file":
+            sender, filename, filesize, filedata = message.split(b'|', 3)
+            sender = sender.decode('utf-8')
+            print("file received from", sender)
+            filename = filename.decode('utf-8')
+            filename = ntpath.basename(filename)
+            filesize = int(filesize.decode('utf-8'))
+            while len(filedata) < filesize:
+                if filesize - len(filedata) > 65536:
+                    filedata += sock_cli.recv(65536)
+                else:
+                    filedata += sock_cli.recv(filesize - len(filedata))
+                    break
+            with open(filename, 'wb') as f:
+                f.write(filedata)
 
 #Object socket
 sock_cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -26,32 +50,46 @@ thread_cli = threading.Thread(target=read_msg, args=(sock_cli,))
 thread_cli.start()
 
 #Mengirim pesan
-while True:
-    try:
-        #Jika ingin memulai chat ketik chat
-        start = input("")
-        
-        #Jika inputan benar
-        if start == "chat":
-            addfriend = input("Type addfriend to add friend or clik enter to continue: ")
-            if addfriend == "addfriend":
-                dest = addfriend
-                addfriend_name = input("Name : ")
-                msg = addfriend_name
-                sock_cli.send(bytes("{}|{}".format(dest, msg), "utf-8"))
+try:
+    while True:
+        dest = input("-kirim pesan privat : chat <username> <message>\n"
+                     "-kirim broadcast : bcast <message>\n"
+                     "-tambah teman : addfriend <username>\n"
+                     "-kirim pesan khusus teman : friends <message>\n"
+                     "-kirim file : sendfile <username> <filepath>\n"
+                     "-keluar : exit\n")
+        msg = dest.split(" ", 1)
 
-            input("")
+        if msg[0] == "exit":
+            sock_cli.close()
+            break
+
+        elif msg[0] == "chat":
+            username, message = msg[1].split(" ", 1)
+            sock_cli.send(bytes("{}|{}".format(username, message), "utf-8"))    
             
-            dest = input("Send to: ")
-            msg = input("Message: ")
+        elif msg[0] == "bcast":
+            sock_cli.send(bytes("bcast|{}".format(msg[1]), "utf-8"))    
+            
+        elif msg[0] == "addfriend":
+            friend = msg[1]
+            sock_cli.send(bytes("addfriend|{}".format(friend), "utf-8"))    
 
-            if msg == "exit":
-                sock_cli.close()
-                break
-            sock_cli.send(bytes("{}|{}".format(dest, msg), "utf-8"))
+        elif msg[0] == "friends":
+            sock_cli.send(bytes("friends|{}".format(msg[1]), "utf-8"))    
+
+        elif msg[0] == "sendfile":
+            username, filepath = msg[1].split(" ", 1)
+            size = os.path.getsize(filepath)
+            print("sending ", filepath, " to ", username)
+            filedata = f'sendfile|{username}|{filepath}|{size}|'.encode('utf-8')
+            with open(filepath, 'rb') as f:
+                filedata += f.read()
+            sock_cli.sendall(filedata)
+            
         else:
-            print("Type chat for starting")
+            print("wrong command")
 
-    except KeyboardInterrupt:
-        sock_cli.close()
-        sys.exit(0)
+except KeyboardInterrupt:
+    sock_cli.close()
+    sys.exit(0)
