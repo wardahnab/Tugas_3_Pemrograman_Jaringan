@@ -3,7 +3,7 @@ import sys
 import threading
 
 
-def read_msg(clients, sock_cli, addr_cli, username_cli): 
+def read_msg(clients, sock_cli, addr_cli, username_cli, friends): 
     #Menerima pesan
     while True:
         data = sock_cli.recv(65535).decode("utf-8")
@@ -13,14 +13,22 @@ def read_msg(clients, sock_cli, addr_cli, username_cli):
         #Parsing pesannya
         dest, msg = data.split("|")
         print(addr_cli, dest, msg)
-        msg = "[{}]: {}".format(username_cli, msg)
     
     #Mengirim pesan ke client        
         #Mengirim pesan untuk semua client
         if dest == "semua":
+            msg = "[{}]: {}".format(username_cli, msg)
             send_broadcast(clients, msg, addr_cli)
-        #Mengirim pesan untuk cilent tertentu
+        #Menambah teman
+        elif dest == "addfriend":
+            dest_username_cli = msg
+            friends[username_cli].append(dest_username_cli)
+            friends[dest_username_cli].append(username_cli)
+            send_msg(clients[username_cli][0], "{} is now friend".format(dest_username_cli))
+            send_msg(clients[dest_username_cli][0], "{} is now friend".format(username_cli))
+        #Mengirim pesan untuk cilent tertentu (tidak harus teman)
         else:
+            msg = "[{}]: {}".format(username_cli, msg)
             for dest_sock_cli, dest_addr_cli, _, dest_username_cli in clients.values():
                 print(dest)
                 print(dest_username_cli)
@@ -53,6 +61,7 @@ sock_server.listen(5)
 
 #Dictionary untuk client
 clients = {}
+friends = {}
 
 while True:
     try:
@@ -63,11 +72,12 @@ while True:
         print(" {} successfully joined".format(username_cli))
 
         #Buat Thread
-        thread_cli = threading.Thread(target=read_msg, args=(clients, sock_cli, addr_cli, username_cli))
+        thread_cli = threading.Thread(target=read_msg, args=(clients, sock_cli, addr_cli, username_cli, friends))
         thread_cli.start()
 
         #Menambah client baru ke dictionary
-        clients["[{}]:{}".format(addr_cli[0], addr_cli[1])] = (sock_cli, addr_cli, thread_cli, username_cli)
+        clients[username_cli] = (sock_cli, addr_cli, thread_cli, username_cli)
+        friends[username_cli] = []
 
     except KeyboardInterrupt:
         #Menutup object server
