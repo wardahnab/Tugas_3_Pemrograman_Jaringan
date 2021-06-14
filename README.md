@@ -2,4 +2,4 @@
 
 Anggota Kelompok :
 * Iffah Wahyu R (05111840000018)
-* Wardah Nabila R (05111840000046)
+* Wardah Nabilah R (05111840000046)
