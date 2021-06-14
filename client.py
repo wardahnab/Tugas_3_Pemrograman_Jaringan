@@ -33,6 +33,15 @@ while True:
         
         #Jika inputan benar
         if start == "chat":
+            addfriend = input("Type addfriend to add friend or clik enter to continue: ")
+            if addfriend == "addfriend":
+                dest = addfriend
+                addfriend_name = input("Name : ")
+                msg = addfriend_name
+                sock_cli.send(bytes("{}|{}".format(dest, msg), "utf-8"))
+
+            input("")
+            
             dest = input("Send to: ")
             msg = input("Message: ")
 
